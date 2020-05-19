@@ -47,5 +47,6 @@ If you find this code useful, please cite it as:
 ```
 Yerlan Idelbayev and Miguel Á. Carreira-Perpiñán: 
 "A flexible, extensible software framework for model compression based on the LC algorithm".
-arXiv, May 15, 2020.
+arXiv:2005.07786, May 15, 2020.
+[http://arxiv.org/abs/2005.07786](http://arxiv.org/abs/2005.07786)
 ```
