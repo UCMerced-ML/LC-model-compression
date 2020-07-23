@@ -23,7 +23,7 @@ At present, we support the following compression schemes:
 If you want to compress your own models, you can use the following examples as a guide:
 - Compressing the [LeNet300 neural network](examples/lenet300/README.md).
 - Reproducing the results of our [CVPR2018 paper](examples/cvpr2018/README.md) on pruning (coming soon)
-- Reproducing the results of our [CVPR2020 paper](examples/cvpr2020/README.md) on low-rank compression with rank selection (coming soon)
+- Reproducing the results of our [CVPR2020 paper](examples/cvpr2020/README.md) on low-rank compression with rank selection
   
 ## Installation  
 We recommend installing the dependencies through [conda](https://conda.io) into a new environment:  
