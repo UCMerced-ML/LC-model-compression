@@ -15,7 +15,7 @@ class ConstraintL0Pruning(PruningTypeBase):
     def __init__(self, kappa, precision='float'):
         """
         This function constructs an object that returns an exact solution of the
-            min_θ ‖w-θ‖² s.t. ‖w‖₀ ≤ κ
+            min_θ ‖w-θ‖² s.t. ‖θ‖₀ ≤ κ
         where
             ‖.‖  is an l2 norm
             ‖.‖₀ is an l0 norm, i.e. number of non zero items in a vector.
@@ -33,7 +33,6 @@ class ConstraintL0Pruning(PruningTypeBase):
             codebook = 2 ** self.precision
             from .quantization import AdaptiveQuantization
             self.quantizer = AdaptiveQuantization(k=codebook)
-
 
     def prune(self, data):
         """
@@ -83,24 +82,17 @@ class ConstraintL0Pruning(PruningTypeBase):
         return pruned
 
     def load_state_dict(self, state_dict):
-        self._state = state_dict
+        super().load_state_dict(state_dict)
         if self.precision < 16:
             self.quantizer.load_state_dict(state_dict['quantizer_state'])
 
-    def uncompress_state(self):
-        remaining_indx = self.state_dict['remaining_indx']
-        remaining_values = self.state_dict["remaining_values"]
-        pruned = np.zeros(self.state_dict['len'])
-        pruned[remaining_indx] = remaining_values.astype(np.float32)
-
-        return pruned
-
 
 class ConstraintL1Pruning(PruningTypeBase):
+
     def __init__(self, kappa):
         """
         This function constructs an object that returns an exact solution of the
-            min_θ ‖w-θ‖² s.t. ‖w‖₁ ≤ κ
+            min_θ ‖w-θ‖² s.t. ‖θ‖₁ ≤ κ
         where
             ‖.‖  is an l2 norm
             ‖.‖₁ is an l1 norm, i.e. sum of absolute values of a vector;
@@ -139,7 +131,17 @@ class ConstraintL1Pruning(PruningTypeBase):
         new_x = b * np.sign(data)
         remaining_indx = new_x != 0
         pruned = np.zeros_like(data)
-        pruned[remaining_indx] = data[remaining_indx]
+        pruned[remaining_indx] = new_x[remaining_indx]
+        remaining_values = new_x[remaining_indx]
+
+        print(f"Number of non-zeros: {len(remaining_values)}")
+        print(f"L1-norm:", np.sum(np.abs(pruned)))
+        self._state = {
+            "remaining_indx": np.where(remaining_indx),
+            "remaining_values": remaining_values,
+            "len": len(data),
+        }
+
         return pruned
 
 
@@ -147,7 +149,7 @@ class PenaltyL0Pruning(PruningTypeBase):
     def __init__(self, alpha):
         """
         This function constructs an object that returns and exact solution of the
-            min_θ ‖w-θ‖² + 2α/μ*‖w‖₀
+            min_θ ‖w-θ‖² + 2α/μ*‖θ‖₀
         where
             ‖.‖  is an l2 norm
             ‖.‖₀ is an l0 norm, i.e. number of non zero items in a vector.
@@ -167,9 +169,25 @@ class PenaltyL0Pruning(PruningTypeBase):
             remaining_indx = np.abs(data) > alph
             pruned = np.zeros_like(data)
             pruned[remaining_indx] = data[remaining_indx]
+            remaining_values = data[remaining_indx]
+            number_of_non_zeros = len(remaining_values)
+
+            print(f"Number of non-zeros: {number_of_non_zeros}")
+
+
+            self._state = {
+                "remaining_indx": np.where(remaining_indx),
+                "remaining_values": remaining_values,
+                "len": len(data),
+            }
 
             return pruned
         else:
+            self._state = {
+                "remaining_indx": np.array([]),
+                "remaining_values": np.array([]),
+                "len": len(data),
+            }
             return np.zeros_like(data)
 
 
@@ -177,7 +195,7 @@ class PenaltyL1Pruning(PruningTypeBase):
     def __init__(self, alpha):
         """
         This function constructs an object that returns solution of the
-            min_θ ‖w-θ‖² + 2α/μ*‖w‖₁
+            min_θ ‖w-θ‖² + 2α/μ*‖θ‖₁
         where
             ‖.‖  is an l2 norm
             ‖.‖₁ is an l1 norm, i.e. sum of absolute values of a vector;
@@ -209,9 +227,22 @@ class PenaltyL1Pruning(PruningTypeBase):
             pruned[pruned < 0] += alph
 
             number_of_non_zeros = np.sum(remaining_indx)
+            remaining_values = pruned[remaining_indx]
+
+            self._state = {
+                "remaining_indx": np.where(remaining_indx),
+                "remaining_values": remaining_values,
+                "len": len(data),
+            }
+
             print(f"Number of non-zeros: {number_of_non_zeros}")
 
             return pruned
         else:
             print(f"Number of non-zeros: {0}")
+            self._state = {
+                "remaining_indx": np.array([]),
+                "remaining_values": np.array([]),
+                "len": len(data),
+            }
             return np.zeros_like(data)

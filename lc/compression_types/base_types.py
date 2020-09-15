@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from abc import ABC, abstractmethod
-
+import numpy as np
 
 class CompressionTypeBase(ABC):
     """"Base type for all compressions (aka C-steps) in the framework."""
@@ -66,3 +66,14 @@ class PruningTypeBase(CompressionTypeBase):
     @abstractmethod
     def prune(self, data):
         pass
+
+    def load_state_dict(self, state_dict):
+        self._state = state_dict
+
+    def uncompress_state(self):
+        remaining_indx = self.state_dict['remaining_indx']
+        remaining_values = self.state_dict["remaining_values"]
+        pruned = np.zeros(self.state_dict['len'])
+        pruned[remaining_indx] = remaining_values.astype(np.float32)
+
+        return pruned
