@@ -24,6 +24,9 @@ If you want to compress your own models, you can use the following examples as a
 - Compressing the [LeNet300 neural network](examples/lenet300/README.md).
 - Reproducing the results of our [CVPR2018 paper](examples/cvpr2018/README.md) on pruning (coming soon)
 - Reproducing the results of our [CVPR2020 paper](examples/cvpr2020/README.md) on low-rank compression with rank selection
+
+## Low-rank AlexNet models
+We have [made available](https://github.com/UCMerced-ML/LC-model-compression/tree/master/examples/low_rank_alexnets) our low-rank AlexNet models from our CVPR2020 paper.
   
 ## Installation  
 We recommend installing the dependencies through [conda](https://conda.io) into a new environment:  

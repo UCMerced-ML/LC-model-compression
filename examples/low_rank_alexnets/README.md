@@ -1,8 +1,16 @@
 # Intro
-We are releasing the pre-trained low-rank AlexNet models described in our recent paper.
+We are releasing the pre-trained low-rank AlexNet models described in our recent paper. 
 We release the weights and all validation/loading code required to run the models. We will 
-release the training scripts soon. 
+release the training scripts soon. The model weights are located in the 
+[Box folder](https://ucmerced.box.com/s/gqtaucm2osjp5r7rlmk6qdcutrzcb6d6), and we additionally provide
+the functionality to load the models directly:
 
+```python
+from model_def import low_rank_alexnet
+m = low_rank_alexnet('scheme_2', 'v1', pretrained=True)
+```
+
+# Released models
 
 Scheme-1 Low-Rank Models:
 
@@ -23,18 +31,6 @@ Scheme-2 Low-Rank Models:
 |ours, v2            |       236      |     41.81     |    19.40     |      3.06       |
 |ours, v3            |       190      |     42.07     |    19.54     |      3.81       |
 |ours, v4            |     **151**    |     42.69     |    19.83     |    **4.79**     |
-
-
-
-# Loading the models
-The model weights are standard PyTorch state_dict objects. Thus, you can load them as
-
-```python
-from model_def import low_rank_alexnet
-m = low_rank_alexnet('scheme_2', 'v1', pretrained=True)
-```
-This will automatically download the models. If you would like to have the direct access to the models, see our 
-[Box folder](https://ucmerced.box.com/s/gqtaucm2osjp5r7rlmk6qdcutrzcb6d6)
 
 # Preprocessing, image transformations, data loading, etc.
 Due to limited hardware resources, we trained our models on a single machine with a single GPU. Therefore, data 
