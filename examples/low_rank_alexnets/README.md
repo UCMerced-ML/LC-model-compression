@@ -82,5 +82,5 @@ The problem was in casting the class's label: we inadvertently casted it to be u
 classes in the dataset to be only 256. On top of that, all classes with labels modulo 256 were grouped: e.g., classses 0, 
 256, 512, and 768 were treated as class 0, and so on.
 
-Upon fixing this bug, the accuracies of compressed models improved by 1.5% in average (see table above). All models weights
+Upon fixing this bug, the accuracies of compressed models improved by 1.5% in average (see table below). All models weights
 are updated to reflect the most recent training results, and can be downloaded as necessary using provided scripts.
