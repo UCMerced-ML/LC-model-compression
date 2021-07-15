@@ -13,6 +13,7 @@ try:
     from nvidia.dali.pipeline import Pipeline
     import nvidia.dali.ops as ops
     import nvidia.dali.types as types
+    import nvidia.dali.fn.decoders as decoders
 except ImportError:
     raise ImportError("Please install DALI from https://www.github.com/NVIDIA/DALI to run this example.")
 
@@ -51,7 +52,7 @@ class ExternalInputIterator(object):
     for _ in range(self.batch_size):
       jpeg_bytes, label = next(self.iterator)
       batch.append(jpeg_bytes)
-      labels.append(np.array([label], dtype = np.uint8))
+      labels.append(np.array([label], dtype=np.int))
     self.i += 1
     return batch, labels
 
@@ -88,11 +89,9 @@ class CaffeTrainPipe(Pipeline):
     decoder_device = 'cpu' if dali_cpu else 'mixed'
     # This padding sets the size of the internal nvJPEG buffers to be able to handle all images from full-sized ImageNet
     # without additional reallocations
-    device_memory_padding = 211025920 if decoder_device == 'mixed' else 0
-    host_memory_padding = 140544512 if decoder_device == 'mixed' else 0
-    self.decode = self.decode = ops.ImageDecoder(device=decoder_device, output_type=types.RGB,
-                                                 device_memory_padding=device_memory_padding,
-                                                 host_memory_padding=host_memory_padding,)
+    self.device_memory_padding = 211025920 if decoder_device == 'mixed' else 0
+    self.host_memory_padding = 140544512 if decoder_device == 'mixed' else 0
+
     self.full_sized = full_sized
     self.square = square
     resize_not_needed = (not square) and (not full_sized)
@@ -106,10 +105,9 @@ class CaffeTrainPipe(Pipeline):
     else:
       print(f"No resize will happen for for TRAIN dataset, full_sized={full_sized}, square={square}")
     self.cmnp = ops.CropMirrorNormalize(device="gpu",
-                                        output_dtype=types.FLOAT,
+                                        dtype=types.FLOAT,
                                         output_layout=types.NCHW,
                                         crop=(crop_size, crop_size),
-                                        image_type=types.RGB,
                                         mean=[0.485 * 255, 0.456 * 255, 0.406 * 255],
                                         std=[0.229 * 255, 0.224 * 255, 0.225 * 255])
     self.coin = ops.CoinFlip(probability=0.5)
@@ -119,7 +117,9 @@ class CaffeTrainPipe(Pipeline):
   def define_graph(self):
     self.jpegs = self.input()
     self.labels = self.input_label()
-    images = self.decode(self.jpegs)
+    images = decoders.image(self.jpegs, device=decoder_device, output_type=types.RGB,
+                                     device_memory_padding=self.device_memory_padding,
+                                     host_memory_padding=self.host_memory_padding)
     if self.resize_needed:
       images = self.res(images)
     output = self.cmnp(images.gpu(), mirror=self.coin(), crop_pos_x=self.uniform(), crop_pos_y=self.uniform())
@@ -142,7 +142,6 @@ class CaffeValPipe(Pipeline):
     super(CaffeValPipe, self).__init__(batch_size, num_threads, device_id)
     self.input = ops.ExternalSource()
     self.input_label = ops.ExternalSource()
-    self.decode = ops.ImageDecoder(device="mixed", output_type=types.RGB)
     self.full_sized = full_sized
     resize_not_needed = (not square) and (not full_sized)
     self.resize_needed = not resize_not_needed
@@ -155,17 +154,16 @@ class CaffeValPipe(Pipeline):
     else:
       print(f"No resize will happen for VAL dataset, full_sized={full_sized}, square={square}")
     self.cmnp = ops.CropMirrorNormalize(device="gpu",
-                                        output_dtype=types.FLOAT,
+                                        dtype=types.FLOAT,
                                         output_layout=types.NCHW,
                                         crop=(crop_size, crop_size),
-                                        image_type=types.RGB,
                                         mean=[0.485 * 255,0.456 * 255,0.406 * 255],
                                         std=[0.229 * 255,0.224 * 255,0.225 * 255])
 
   def define_graph(self):
     self.jpegs = self.input()
     self.labels = self.input_label()
-    images = self.decode(self.jpegs)
+    images = decoders.image(self.jpegs, device="mixed", output_type=types.RGB)
     if self.resize_needed:
       images = self.res(images)
     output = self.cmnp(images)

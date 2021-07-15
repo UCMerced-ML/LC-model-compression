@@ -167,6 +167,7 @@ class CaffeBNLowRankAlexNet(nn.Module):
 def validate(model, lmdb_file_location, full_sized=False):
   import time, os
   from nvidia.dali.plugin.pytorch import DALIClassificationIterator
+  from nvidia.dali.plugin.pytorch import LastBatchPolicy
 
   def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
@@ -176,12 +177,12 @@ def validate(model, lmdb_file_location, full_sized=False):
 
       _, pred = output.topk(maxk, 1, True, True)
       pred = pred.t()
-      correct = pred.eq(target.view(1, -1).expand_as(pred))
+      correct = pred.eq(target[None])
 
       res = []
       for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
-        res.append(correct_k.mul_(100.0 / batch_size))
+        correct_k = correct[:k].flatten().sum(dtype=torch.float32).item()
+        res.append(correct_k * (100.0 / batch_size))
       return res
 
   class ProgressMeter(object):
@@ -238,7 +239,8 @@ def validate(model, lmdb_file_location, full_sized=False):
                         data_dir=os.path.expanduser(lmdb_file_location), crop_size=227, resize_size=256,
                         full_sized=full_sized)
     pipe.build()
-    val_loader = DALIClassificationIterator(pipe, size=int(pipe.eii.len_), auto_reset=True, fill_last_batch=False)
+    val_loader = DALIClassificationIterator(pipe, size=int(pipe.eii.len_), auto_reset=True,
+                                            last_batch_padded=True, last_batch_policy=LastBatchPolicy.DROP)
     for data in val_loader:
       images = data[0]["data"]
       target = data[0]["label"].squeeze().cuda().long()
@@ -259,8 +261,8 @@ def validate(model, lmdb_file_location, full_sized=False):
       # measure accuracy and record loss
       acc1, acc5 = accuracy(output, target, topk=(1, 5))
       losses.update(loss.item(), images.size(0))
-      top1.update(acc1[0], images.size(0))
-      top5.update(acc5[0], images.size(0))
+      top1.update(acc1, images.size(0))
+      top5.update(acc5, images.size(0))
 
       # measure elapsed time
       batch_time.update(time.time() - end)
@@ -273,28 +275,34 @@ def validate(model, lmdb_file_location, full_sized=False):
 
 
 sha256_and_ranks = {
-    "scheme_2_v4": ("d89ee385", "https://ucmerced.box.com/shared/static/81r59yj437ngyr4t4m9gfpx08y3k5rej.th",
-                    [6,  26,  70,  74,  96,  534,  423, 256]),
-    "scheme_2_v3": ("56982c03", "https://ucmerced.box.com/shared/static/stz6t6jd7hioktyw0kngypbpnkh6hrda.th",
-                    [9,  29,  85,  92, 118,  762,  724, 256]),
-    "scheme_2_v2": ("a126ab06", "https://ucmerced.box.com/shared/static/mlso238v2pa9taxqkf0l2rsyjhyi56jn.th",
-                    [10, 35, 107, 117, 150, 1050, 1107, 256]),
-    "scheme_2_v1": ("bf688dc1", "https://ucmerced.box.com/shared/static/nqsgh4bbcvih8gjcfsqhyb2tw1ojwpho.th",
-                    [13, 45, 146, 172, 200, 1726, 1841, 256]),
-
-    "scheme_1_v1": ("f15f3f59", "https://ucmerced.box.com/shared/static/kf1c2yiq4fdpn1qhx783vzva3o4h09xh.th",
-                    [33, 52, 134, 135, 159, 1703, 1845, 256]),
-    "scheme_1_v2": ("8a201fc0", "https://ucmerced.box.com/shared/static/xkyu8j6iq4gerh8dsjo7jeqi5yj9iwla.th",
-                    [25, 36, 84,   71, 89,   751,  724, 256]),
-    "scheme_1_v3": ("97c0439b", "https://ucmerced.box.com/shared/static/xwi9i1laqvxogd45kxlucycm46xdk8u4.th",
-                    [23, 34, 75,   64, 82,   598,  498, 256]),
+    "scheme_2_v5": ("4be01163", "https://ucmerced.box.com/shared/static/0hybf7mfvbieo960djmjbx762ojncf23.th",
+                    [7, 28, 69, 71, 88, 506, 349, 255]),
+    "scheme_2_v4": ("942f65e2", "https://ucmerced.box.com/shared/static/jt5q4enebmzhwyqsxgpnf1d754onrjo7.th",
+                    [8, 28, 76, 79, 99, 606, 428, 288]),
+    "scheme_2_v3": ("9c4c1936", "https://ucmerced.box.com/shared/static/e2p92xoi379kyaqitkq7ndyzsdlfmdfp.th",
+                    [8, 30, 85, 90, 114, 770, 582, 341]),
+    "scheme_2_v2": ("55b9a0ea", "https://ucmerced.box.com/shared/static/m1bkb1fa7kjhr1dgmzibf5gi3g8s8jre.th",
+                    [9, 34, 103, 116, 143, 1075, 937, 449]),
+    "scheme_2_v1": ("7d40760d", "https://ucmerced.box.com/shared/static/jzxy0mjk90fbfy6mycsf2s2fuy0mfle0.th",
+                    [11, 46, 148, 172, 199, 1790, 1733, 694]),
+    "scheme_1_v4": ("ebe67e42", "https://ucmerced.box.com/shared/static/wf3ql7hrh1h6r47yvhjh69a156zz8q72.th",
+                    [25, 31, 76, 62, 76, 602, 429, 290]),
+    "scheme_1_v3": ("8818118f", "https://ucmerced.box.com/shared/static/v8zq2slomeujoornye6lp4iowb5p8hks.th",
+                    [26, 34, 79, 66, 82, 688, 507, 318]),
+    "scheme_1_v2": ("0ce94504", "https://ucmerced.box.com/shared/static/269boh81nprmcaesuj73ewxkg10j1j32.th",
+                    [27, 33, 82, 71, 87, 760, 586, 344]),
+    "scheme_1_v1": ("284115ac", "https://ucmerced.box.com/shared/static/ft35w3owq5l1vfo54l8pi8daaoeykp2p.th",
+                    [33, 53, 133, 134, 156, 1764, 1748, 703]),
   }
 
 def low_rank_alexnet(scheme, tag, pretrained=False):
   sha256_first8, link, ranks = sha256_and_ranks[f"{scheme}_{tag}"]
   model = CaffeBNLowRankAlexNet(scheme=scheme, ranks=ranks)
   if pretrained:
-    model_state = torch.utils.model_zoo.load_url(link, progress=True)
+    model_state = torch.utils.model_zoo.load_url(link,
+                                                 file_name=f"alexnet_bn_{scheme}_{tag}-{sha256_first8}.th",
+                                                 progress=True,
+                                                 check_hash=True)
     model.load_state_dict(model_state)
   return model
 
@@ -309,11 +317,13 @@ if __name__=='__main__':
   parser.add_argument('--lmdb_file', type=str)
   args = parser.parse_args()
 
+  load_and_validate("scheme_1", "v1", args.lmdb_file)
+  load_and_validate("scheme_1", "v2", args.lmdb_file)
+  load_and_validate("scheme_1", "v3", args.lmdb_file)
+  load_and_validate("scheme_1", "v4", args.lmdb_file)
+
   load_and_validate("scheme_2", "v1", args.lmdb_file)
   load_and_validate("scheme_2", "v2", args.lmdb_file)
   load_and_validate("scheme_2", "v3", args.lmdb_file)
   load_and_validate("scheme_2", "v4", args.lmdb_file)
-
-  load_and_validate("scheme_1", "v1", args.lmdb_file)
-  load_and_validate("scheme_1", "v2", args.lmdb_file)
-  load_and_validate("scheme_1", "v3", args.lmdb_file)
+  load_and_validate("scheme_2", "v5", args.lmdb_file)
