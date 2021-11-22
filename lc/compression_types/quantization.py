@@ -61,7 +61,7 @@ class AdaptiveQuantization(CompressionTypeBase):
             else:
                 init = 'k-means++'
             print(self._state, init)
-            kmeans = KMeans(n_clusters=self.k_, n_init=10, tol=1e-10, n_jobs=8, init=init)
+            kmeans = KMeans(n_clusters=self.k_, n_init=10, tol=1e-10, init=init)
             assignments = kmeans.fit_predict(data[:, None])
             print('K-Means converged in {} iterations.'.format(kmeans.n_iter_))
             if self.step_number not in self.info:

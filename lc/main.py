@@ -21,7 +21,7 @@ class Algorithm():
        https://arxiv.org/abs/1707.01209
 
     """
-    def __init__(self, model, compression_tasks, mu_schedule, l_step_optimization, evaluation_func, c_step_reps=50):
+    def __init__(self, model, compression_tasks, mu_schedule, l_step_optimization, evaluation_func, c_step_reps=10):
         """
         Constructs lc.Algorithm object
 

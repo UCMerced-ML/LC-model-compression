@@ -64,6 +64,7 @@ class LowRank(CompressionTypeBase):
         :param conv_scheme: if tensor is given, how it should be reshaped into matrix
         :param precision: should be store low-rank U,V with different precision (32 or 16 bits)
         """
+#         print("are we here?")
         super(LowRank, self).__init__()
         self.target_rank = target_rank
         self.conv_scheme = conv_scheme
@@ -74,6 +75,7 @@ class LowRank(CompressionTypeBase):
         return u,s,v
 
     def compress(self, data):
+        print("we are here")
         matrix = None
         init_shape = data.shape
         if data.ndim == 2:
@@ -83,7 +85,7 @@ class LowRank(CompressionTypeBase):
 
         u, s, v = self.perform_svd(matrix)
         r = self.target_rank
-
+        print("target_rank", self.target_rank)
         if r < np.min(matrix.shape):
             diag = np.diag(s[:r] ** 0.5)
             U = u[:, :r] @ diag
@@ -101,10 +103,13 @@ class LowRank(CompressionTypeBase):
             self.info[self.step_number] = step_info
             self._state = {"U": U, "V": V, "selected_rank": None, "init_shape": init_shape}
 
+            print("Low-rank compression is finished")
             if len(init_shape) == 2:
                 return low_rank_matrix
             elif len(init_shape) == 4:
                 return matrix_to_tensor(low_rank_matrix, init_shape, self.conv_scheme)
+        
+        
 
     def load_state_dict(self, state_dict):
         self._state = state_dict
