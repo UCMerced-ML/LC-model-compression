@@ -79,7 +79,7 @@ class AdaptiveQuantization(CompressionTypeBase):
             return quantized
 
 
-class OptimalAdaptiveQuantization(CompressionTypeBase):
+class OptimalAdaptiveQuantization(AdaptiveQuantization):
     """
     This class solves k-means optimally for 1d quantization case using K*N*log(N) algorithm of Wu and Rockne, see [3].
     """
@@ -168,13 +168,21 @@ class OptimalAdaptiveQuantization(CompressionTypeBase):
 
     def quantize_to(self, data, centers):
         quantized = np.zeros(len(data))
+        assignments = np.zeros(len(data))
         for i, x in enumerate(data):
             min_ = float("Inf")
-            for c in centers:
+            for j, c in enumerate(centers):
                 val = (x-c)**2
                 if val < min_:
                     quantized[i] = c
+                    assignments[i] = j
                     min_ = val
+        self._state = {"cluster_centers": cluster_centers, "assignments": assignments, "data_shape": data.shape}
+
+        if self.k_ == 2:
+            # we can store much more efficiently
+            self._state['assignments'] = np.packbits(assignments)
+
         return quantized
 
     def compress(self, data):
@@ -194,9 +202,21 @@ class ScaledBinaryQuantization(CompressionTypeBase):
         """
         super(ScaledBinaryQuantization, self).__init__()
 
+    def load_state_dict(self, state_dict):
+        self._state = state_dict
+
+    def uncompress_state(self):
+        l = np.prod(self._state['data_shape'])
+        assignments = np.unpackbits(self._state['assignments_packed'])[:l]
+        return self._state['centers'][assignments]
+
+
     def compress(self, data):
         a = np.mean(np.abs(data))
         quantized = 2 * a * (data > 0) - a
+        assignments = (data > 0).astype(np.int)
+        self._state = {'assignments_packed': np.packbits(assignments), 'centers': np.array([-a, a]),
+                       'data_shape': data.shape}
 
         return quantized
 
@@ -211,10 +231,20 @@ class BinaryQuantization(CompressionTypeBase):
         """
         super(BinaryQuantization, self).__init__()
 
+    def load_state_dict(self, state_dict):
+        self._state = state_dict
+
+    def uncompress_state(self):
+        l = np.prod(self._state['data_shape'])
+        assignments = np.unpackbits(self._state['assignments_packed'])[:l]
+        return self._state['centers'][assignments]
+
     def compress(self, data):
         a = 1
         quantized = 2 * a * (data > 0) - a
-
+        assignments = (data > 0).astype(np.int)
+        self._state = { 'assignments_packed': np.packbits(assignments), 'centers': np.array([-a, a]),
+                        'data_shape': data.shape }
         return quantized
 
 
@@ -227,6 +257,12 @@ class ScaledTernaryQuantization(CompressionTypeBase):
         See [1] for more details.
         """
         super(ScaledTernaryQuantization, self).__init__()
+
+    def load_state_dict(self, state_dict):
+        self._state = state_dict
+
+    def uncompress_state(self):
+        return self._state['assignments']*self._state['scale']
 
     def compress(self, data):
         # We need a stable sort so that same valued weights will not get assigned to different
@@ -245,5 +281,6 @@ class ScaledTernaryQuantization(CompressionTypeBase):
         _abs = np.abs(data)
         _nonzero = data * [_abs > a / 2]
         quantized = np.sign(_nonzero) * a
+        self._state = {'assignments':  np.sign(_nonzero), 'scale': a }
 
         return quantized
