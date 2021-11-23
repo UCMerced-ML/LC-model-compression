@@ -196,6 +196,42 @@ class Algorithm():
         self.l_step_optimization(self.model, self.lc_penalty, step)
         self.retrieve()
 
+    def count_params(self):
+        """
+        Computes the number of current compressed parameters.
+        """
+        total_params = 0
+        for param, task_details in self.compression_tasks.items():
+            if isinstance(task_details, tuple):
+                _, compression, _ = task_details
+                total_params += compression.count_params()
+
+            elif isinstance(task_details, list):
+                # Additive compressions regime
+                for (_, compression, _) in task_details:
+                    # we compute \sum_{i≠k}Δᵢ(Θᵢ) first
+                    total_params += compression.count_params()
+
+        return total_params
+
+    def count_param_bits(self):
+        """
+        Computes the number of bits required to store the current compressed version of the parameters.
+        """
+        total_param_bits = 0
+        for param, task_details in self.compression_tasks.items():
+            if isinstance(task_details, tuple):
+                _, compression, _ = task_details
+                total_param_bits += compression.count_param_bits()
+
+            elif isinstance(task_details, list):
+                # Additive compressions regime
+                for (_, compression, _) in task_details:
+                    # we compute \sum_{i≠k}Δᵢ(Θᵢ) first
+                    total_param_bits += compression.count_param_bits()
+
+        return total_param_bits
+
     def run(self):
         """
         This runs the LC algorithm proper.

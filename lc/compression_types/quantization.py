@@ -78,6 +78,18 @@ class AdaptiveQuantization(CompressionTypeBase):
             quantized = cluster_centers.flatten()[assignments]
             return quantized
 
+    def count_params(self):
+        if "data_shape" in self._state:
+            return self.k_ + np.prod(self._state['data_shape'])
+        else:
+            raise Error("Cannot count the number of compressed params: no compression was performed")
+
+    def count_param_bits(self):
+        if "data_shape" in self._state:
+            # storing assignments (each requries ⌈log(k)⌉ bits) + storing codebook itself using 32 bits per float
+            return np.ceil(np.log2(self.k_)) * np.prod(self._state['data_shape']) + 32*self.k_
+        else:
+            raise Error("Cannot count the number of compressed params: no compression was performed")
 
 class OptimalAdaptiveQuantization(AdaptiveQuantization):
     """
@@ -210,7 +222,6 @@ class ScaledBinaryQuantization(CompressionTypeBase):
         assignments = np.unpackbits(self._state['assignments_packed'])[:l]
         return self._state['centers'][assignments]
 
-
     def compress(self, data):
         a = np.mean(np.abs(data))
         quantized = 2 * a * (data > 0) - a
@@ -220,8 +231,20 @@ class ScaledBinaryQuantization(CompressionTypeBase):
 
         return quantized
 
+    def count_params(self):
+        if "data_shape" in self._state:
+            return 1 + np.prod(self._state['data_shape'])
+        else:
+            raise Error("Cannot count the number of compressed params: no compression was performed")
 
-class BinaryQuantization(CompressionTypeBase):
+    def count_param_bits(self):
+        if "data_shape" in self._state:
+            return np.prod(self._state['data_shape']) + 32
+        else:
+            raise Error("Cannot count the number of compressed params: no compression was performed")
+
+
+class BinaryQuantization(ScaledBinaryQuantization):
     def __init__(self):
         """
         This function constructs an object that returns an exact solution of the binary quantization problem,
@@ -231,14 +254,6 @@ class BinaryQuantization(CompressionTypeBase):
         """
         super(BinaryQuantization, self).__init__()
 
-    def load_state_dict(self, state_dict):
-        self._state = state_dict
-
-    def uncompress_state(self):
-        l = np.prod(self._state['data_shape'])
-        assignments = np.unpackbits(self._state['assignments_packed'])[:l]
-        return self._state['centers'][assignments]
-
     def compress(self, data):
         a = 1
         quantized = 2 * a * (data > 0) - a
@@ -247,6 +262,17 @@ class BinaryQuantization(CompressionTypeBase):
                         'data_shape': data.shape }
         return quantized
 
+    def count_params(self):
+        if "data_shape" in self._state:
+            return np.prod(self._state['data_shape'])
+        else:
+            raise Error("Cannot count the number of compressed params: no compression was performed")
+
+    def count_param_bits(self):
+        if "data_shape" in self._state:
+            return np.prod(self._state['data_shape'])
+        else:
+            raise Error("Cannot count the number of compressed params: no compression was performed")
 
 class ScaledTernaryQuantization(CompressionTypeBase):
     def __init__(self):
@@ -263,6 +289,19 @@ class ScaledTernaryQuantization(CompressionTypeBase):
 
     def uncompress_state(self):
         return self._state['assignments']*self._state['scale']
+
+
+    def count_params(self):
+        if "assignments" in self._state:
+            return self._state['assignments'].size
+        else:
+            raise Error("Cannot count the number of compressed params: no compression was performed")
+
+    def count_param_bits(self):
+        if "assignments" in self._state:
+            return self._state['assignments'].size*2 + 32
+        else:
+            raise Error("Cannot count the number of compressed params: no compression was performed")
 
     def compress(self, data):
         # We need a stable sort so that same valued weights will not get assigned to different

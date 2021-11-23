@@ -122,6 +122,18 @@ class LowRank(CompressionTypeBase):
         elif len(self.state_dict["init_shape"]) == 4:
             return matrix_to_tensor(U@V, self.state_dict["init_shape"], self.conv_scheme)
 
+    def count_params(self):
+        if "U" in self._state:
+            return self._state['U'].size + self._state['V'].size
+        else:
+            raise Error("Cannot count the number of compressed params: no compression was performed")
+
+    def count_param_bits(self):
+        if "U" in self._state:
+            return (self._state['U'].size + self._state['V'].size)*32
+        else:
+            raise Error("Cannot count the number of compressed params: no compression was performed")
+
 
 class RankSelection(LowRank):
     def __init__(self, conv_scheme, alpha, criterion, normalize, module):

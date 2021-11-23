@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from abc import ABC, abstractmethod
+from .utils import diff_based_coding
 import numpy as np
 
 class CompressionTypeBase(ABC):
@@ -38,6 +39,20 @@ class CompressionTypeBase(ABC):
     def uncompress_state(self):
         pass
 
+    @abstractmethod
+    def count_params(self):
+        """
+        Counts the number of parameters in the current compressed weights
+        """
+        pass
+
+    @abstractmethod
+    def count_param_bits(self):
+        """
+        Counts the number of bits required to save the current compressed weights
+        """
+        pass
+
     @mu.setter
     def mu(self, mu):
         if mu < 0:
@@ -69,6 +84,24 @@ class PruningTypeBase(CompressionTypeBase):
 
     def load_state_dict(self, state_dict):
         self._state = state_dict
+
+    def count_params(self):
+        if "remaining_values" in self._state:
+            return np.size(self.state_dict["remaining_values"])
+        else:
+            raise Error("Cannot count the number of compressed params: no compression was performed")
+
+    def count_param_bits(self):
+        if "remaining_values" in self._state:
+            pruned = self.uncompress_state()
+            indx = np.flatnonzero(pruned)
+            diff_indx = indx[1:] - indx[:-1]
+            storage_bits = diff_based_coding(diff_indx, correction_precision=32,
+                                             diff_bases=range(2, 33))
+            return storage_bits
+        else:
+            raise Error("Cannot count the number of compressed params: no compression was performed")
+
 
     def uncompress_state(self):
         remaining_indx = self.state_dict['remaining_indx']
